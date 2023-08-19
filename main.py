@@ -1,9 +1,20 @@
 from http import server
 from functools import cached_property
 from urllib.parse import parse_qsl, urlparse
-from db import return_all_cur
-import json
+from model import Model
+from views import Views
 
+
+class MyException1(Exception):
+    pass
+
+
+class MyException2(Exception):
+    pass
+
+
+class MyException3(Exception):
+    pass
 
 # Хендлер - это обработчик http запросов,
 # То есть я наследуюсь от базового хендлера, и теперь могу обрабатывать http запросы
@@ -35,31 +46,57 @@ class HTTPRequestHandler(server.BaseHTTPRequestHandler):
         self.send_response(400)
         self.send_header('content-type', 'text/html')
         self.end_headers()
-        self.wfile.write('Введен неправильный запрос'.encode(encoding='Windows-1251'))
+        self.wfile.write(Views.create_wrong_request())
 
     # Получение списка валют
+    # Почти доделанная функция - остается решить только вопрос с кодировкой знаков
     # /currencies
     def do_currencies(self):
         self.path = '/currencies'
-        self.send_response(200)
-        self.send_header('content-type', 'text/html')
-        self.end_headers()
-        print(return_all_cur())
-        # self.wfile.write('Получение списка валют'.encode(encoding='Windows-1251'))
-        self.wfile.write(json.dumps(return_all_cur()).encode())
+        # Кодировку знаков доделать, все остальное хорошо
+        try:
+            data = Model.get_currencies()
+            self.send_response(200)
+            self.send_header('content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(Views.create_currencies_response200(data))
+        except:
+            self.send_response(500)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_currencies_response500())
 
     # Получение конкретной валюты, которая идет после слэша
+    # Почти доделанная функция - остается нормально проверить введенные валюты и прописать эксепшены
     # /currency/
     def do_currency(self):
         currency_code = self.url.path[-3:]
-        # Валидация на то, что валюта введена корректна и она существует в базе данных
-        # if self.url.path[-4] != '/' or ...:
-        #     HTTPRequestHandler.wrong_request(self)
-        self.send_response(200)
-        self.send_header('content-type', 'text/html')
-        self.end_headers()
-        answer = 'Получение конкретной валюты'.encode(encoding='Windows-1251') + ' '.encode() + currency_code.encode()
-        self.wfile.write(answer)
+        try:
+            data = Model.get_currency(currency_code)
+            if self.url.path[-4] != '/' or not self.url.path[-3:].isalpha():
+                raise MyException1
+            # Почему-то пустой json объект имеет длину два
+            if len(data) == 2:
+                raise MyException2
+            self.send_response(200)
+            self.send_header('content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(Views.create_currency_response200(data))
+        except MyException1:
+            self.send_response(400)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_currency_response400())
+        except MyException2:
+            self.send_response(404)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_currency_response404())
+        except:
+            self.send_response(500)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_currency_response500())
 
     # Получение списка всех обменных курсов
     # /exchangeRates
