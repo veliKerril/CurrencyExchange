@@ -1,6 +1,6 @@
 from http import server
 from functools import cached_property
-from urllib.parse import parse_qsl, urlparse
+from urllib.parse import parse_qsl, urlparse, parse_qs
 from model import Model
 from views import Views
 
@@ -72,11 +72,11 @@ class HTTPRequestHandler(server.BaseHTTPRequestHandler):
     def do_currency(self):
         currency_code = self.url.path[-3:]
         try:
-            data = Model.get_currency(currency_code)
             if self.url.path[-4] != '/' or not self.url.path[-3:].isalpha():
                 raise MyException1
+            data = Model.get_currency(currency_code)
             # Почему-то пустой json объект имеет длину два
-            if len(data) == 2:
+            if not data:
                 raise MyException2
             self.send_response(200)
             self.send_header('content-type', 'application/json')
@@ -99,32 +99,66 @@ class HTTPRequestHandler(server.BaseHTTPRequestHandler):
             self.wfile.write(Views.create_currency_response500())
 
     # Получение списка всех обменных курсов
+    # Почти доделанная функция - остается не всю информацию вытаскивать в оперативную память
     # /exchangeRates
     def do_exchange_rates(self):
-        self.send_response(200)
-        self.send_header('content-type', 'text/html')
-        self.end_headers()
-        self.wfile.write('Получение списка всех обменных курсов'.encode(encoding='Windows-1251'))
+        try:
+            data = Model.get_exchange_rates()
+            self.send_response(200)
+            self.send_header('content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(Views.create_exchangeRates_response200(data))
+        except:
+            self.send_response(500)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_exchangeRates_response500())
 
     # Получение конкретного обменного курса
     # /exchangeRate/
-    def do_exchange_rates_specific(self):
-        self.send_response(200)
-        self.send_header('content-type', 'text/html')
-        self.end_headers()
-        self.wfile.write('Получение конкретного обменного курса'.encode(encoding='Windows-1251'))
+    def do_exchange_rate(self):
+        try:
+            if self.url.path[-7] != '/' or not self.url.path[-6:].isalpha():
+                raise MyException1
+            code1 = self.url.path[-6:-3]
+            code2 = self.url.path[-3:]
+            data = Model.get_exchange_rate(code1, code2)
+            if not data:
+                raise MyException2
+            self.send_response(200)
+            self.send_header('content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(Views.create_exchangeRate_response200(data))
+        except MyException1:
+            self.send_response(400)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_exchangeRate_response400())
+        except MyException2:
+            self.send_response(404)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_exchangeRate_response404())
+        except:
+            self.send_response(500)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_exchangeRate_response500())
 
     # После вопроса вводятся аргументы и выдается обменный курс
     # /exchange?from=BASE_CURRENCY_CODE&to=TARGET_CURRENCY_CODE&amount=$AMOUNT
     # /exchange?from=USD&to=AUD&amount=10
+    # Тестовая реализация 2
     def do_exchange(self):
-        self.send_response(200)
-        self.send_header('content-type', 'text/html')
-        self.end_headers()
-        answer = f'Перевод из {self.query_data["from"]} в {self.query_data["to"]} в количестве {self.query_data["amount"]} штук'
-        self.wfile.write(answer.encode(encoding='Windows-1251'))
-        # print(self.url)
-        # print(self.query_data)
+        try:
+            data = Model.get_exchange(self.query_data["from"], self.query_data["to"], self.query_data["amount"])
+            # Не смогли перевести
+            self.send_response(200)
+            self.send_header('content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(Views.create_exchange_response200(data))
+        except:
+            HTTPRequestHandler.wrong_request(self)
 
     # Реакция на любой GET запрос
     def do_GET(self):
@@ -135,19 +169,78 @@ class HTTPRequestHandler(server.BaseHTTPRequestHandler):
         elif self.path == '/exchangeRates':
             HTTPRequestHandler.do_exchange_rates(self)
         elif self.path[:14] == '/exchangeRate/':
-            HTTPRequestHandler.do_exchange_rates_specific(self)
+            HTTPRequestHandler.do_exchange_rate(self)
         elif self.path[:9] == '/exchange':
             HTTPRequestHandler.do_exchange(self)
         else:
             HTTPRequestHandler.wrong_request(self)
 
+    # Тестовая версия 3
     def do_post_add_new_currency(self):
-        self.send_response(200)
-        self.end_headers()
+        try:
+            content_length = int(self.headers['Content-Length'])
+            body = self.rfile.read(content_length)
+            answer = parse_qs(str(body)[2:-1])
+            data = Model.post_currencies(answer['name'][0], answer['code'][0], answer['sign'][0])
+            bool1 = False
+            bool2 = False
+            if bool1:
+                raise MyException1
+            # Почему-то пустой json объект имеет длину два
+            if bool2:
+                raise MyException2
+            self.send_response(200)
+            self.send_header('content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(Views.create_post_currencies_response200(data))
+        except MyException1:
+            self.send_response(400)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_post_exchangeRate_response400())
+        except MyException2:
+            self.send_response(409)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_post_currencies_response409())
+        except:
+            self.send_response(500)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_post_currencies_response400())
 
     def do_post_exchange_rate(self):
-        self.send_response(200)
-        self.end_headers()
+        try:
+            content_length = int(self.headers['Content-Length'])
+            body = self.rfile.read(content_length)
+            answer = parse_qs(str(body)[2:-1])
+            data = Model.post_exchangeRate(answer['baseCurrencyCode'][0], answer['targetCurrencyCode'][0], answer['rate'][0])
+            bool1 = False
+            bool2 = False
+            if bool1:
+                raise MyException1
+            # Почему-то пустой json объект имеет длину два
+            if bool2:
+                raise MyException2
+            self.send_response(200)
+            self.send_header('content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(Views.create_post_exchangeRate_response200(data))
+        except MyException1:
+            self.send_response(400)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_post_exchangeRate_response400())
+        except MyException2:
+            self.send_response(409)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_post_exchangeRate_response409())
+        except:
+            self.send_response(500)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_post_exchangeRate_response500())
 
     # Реакция на любой POST запрос
     def do_POST(self):
@@ -159,8 +252,38 @@ class HTTPRequestHandler(server.BaseHTTPRequestHandler):
             HTTPRequestHandler.wrong_request(self)
 
     def do_patch_update_exchange_rate(self):
-        self.send_response(200)
-        self.end_headers()
+        try:
+            if self.url.path[-7] != '/' or not self.url.path[-6:].isalpha():
+                raise MyException1
+            code1 = self.url.path[-6:-3]
+            code2 = self.url.path[-3:]
+            content_length = int(self.headers['Content-Length'])
+            body = self.rfile.read(content_length)
+            rate = parse_qs(str(body)[2:-1])['rate'][0]
+            data = Model.patch_exchangeRate(code1, code2, rate)
+            bool2 = False
+            # Почему-то пустой json объект имеет длину два
+            if bool2:
+                raise MyException2
+            self.send_response(200)
+            self.send_header('content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(Views.create_patch_exchangeRate_response200(data))
+        except MyException1:
+            self.send_response(400)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_patch_exchangeRate_response400())
+        except MyException2:
+            self.send_response(404)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_patch_exchangeRate_response404())
+        except:
+            self.send_response(500)
+            self.send_header('content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(Views.create_patch_exchangeRate_response500())
 
     # Реакция на любой PATCH запрос
     def do_PATCH(self):
