@@ -148,7 +148,12 @@ class Views:
 
     # Возвращает представление для PATCH /exchangeRate/, response 400
     @staticmethod
-    def create_patch_exchangeRate_response400():
+    def create_patch_exchangeRate_response400_1():
+        return 'Неправильно введены валюты в URL'.encode(encoding=Views.ENCODING)
+
+    # Возвращает представление для PATCH /exchangeRate/, response 400
+    @staticmethod
+    def create_patch_exchangeRate_response400_2():
         return 'Отсутствует нужное поле формы'.encode(encoding=Views.ENCODING)
 
     # Возвращает представление для PATCH /exchangeRate/, response 404
@@ -160,7 +165,3 @@ class Views:
     @staticmethod
     def create_patch_exchangeRate_response500():
         return 'Ошибка на стороне сервера'.encode(encoding=Views.ENCODING)
-
-
-if __name__ == '__main__':
-    pass

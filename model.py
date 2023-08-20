@@ -1,6 +1,18 @@
 import sqlite3 as sq
 import json
 
+
+class MyException1(Exception):
+    pass
+
+
+class MyException2(Exception):
+    pass
+
+
+class MyException3(Exception):
+    pass
+
 '''
 В обязательном порядке переписать комментарии
 '''
@@ -279,25 +291,112 @@ class Model:
             else:
                 return json.dumps({'message': 'Not found'}, indent=4)
 
-    # ТЕСТОВАЯ ВЕРСИЯ!!! 3
-    
+    # Исправить sql часть
+    # Реагирует на POST для /currencies, добавляет новую валюту в бд
     @staticmethod
     def post_currencies(name, code, sign):
+        with sq.connect('CurrencyExchange.db') as con:
+            cur = con.cursor()
+            cur.execute("""SELECT Code FROM Currencies""")
+            for elem in cur:
+                if elem[0] == code:
+                    raise MyException2
+
+            cur.execute("""INSERT INTO Currencies (Code, FullName, Sign) VALUES (?, ?, ?)""", (code, name, sign))
+
         return json.dumps({'name': name, 'code': code, 'sign': sign}, indent=4)
 
-    # ТЕСТОВАЯ ВЕРСИЯ!!! 4
+    # Исправить sql часть
+    # Реагирует на POST для /exchangeRate, добавляет новый обменный курс
     @staticmethod
-    def post_exchangeRate(baseCurrencyCode, targetCurrencyCode, rate):
-        return json.dumps({'baseCurrencyCode': baseCurrencyCode, 'targetCurrencyCode': targetCurrencyCode,\
-                           'rate': rate}, indent=4)
+    def post_exchangeRate(code1, code2, rate):
+        with sq.connect('CurrencyExchange.db') as con:
+            cur = con.cursor()
+            code1 = code1.upper()
+            code2 = code2.upper()
 
-    # ТЕСТОВАЯ ВЕРСИЯ!!! 5
+            cur.execute("""SELECT Currencies.ID,  Currencies.Code, Currencies.FullName, Currencies.Sign
+                                   FROM ExchangeRates JOIN Currencies ON ExchangeRates.BaseCurrencyId = Currencies.ID""")
+            # Список с кортежами по первой валюте
+            data1 = cur.fetchall()
+            # Запрос, который вытаскивает валюту по второму внешнему ключу
+            cur.execute("""SELECT Currencies.ID,  Currencies.Code, Currencies.FullName, Currencies.Sign
+                                               FROM ExchangeRates JOIN Currencies ON ExchangeRates.TargetCurrencyId = Currencies.ID""")
+            # Список с кортежами по второй валюте
+            data2 = cur.fetchall()
+
+            # В эту переменную я вкладываю все возможные пары валют
+            cur_exchange = []
+            for i in range(len(data1)):
+                cur_exchange.append(str(data1[i][1]))
+                cur_exchange[-1] += str(data2[i][1])
+            set_cur_exchange = set(cur_exchange)
+            if code1+code2 in set_cur_exchange:
+                raise MyException2
+
+            cur.execute("""SELECT * FROM Currencies""")
+            for elem in cur:
+                if elem[1] == code1:
+                    id1 = elem[0]
+                    break
+
+            for elem in cur:
+                if elem[1] == code2:
+                    id2 = elem[0]
+                    break
+
+            # Не работает
+            cur.execute("""INSERT INTO ExchangeRates (BaseCurrencyId, TargetCurrencyId, Rate) 
+                        VALUES (?, ?, ?)""", (id1, id2, rate))
+
+            return json.dumps({'baseCurrencyCode': code1, 'targetCurrencyCode': code2,\
+                               'rate': rate}, indent=4)
+
+    # Исправить sql часть
+    # Реагирует на PATCH для /exchangeRate/, изменяя предыдущие значения
     @staticmethod
     def patch_exchangeRate(code1, code2, rate):
-        test = json.dumps({'code1': code1, 'code2': code2, 'rate': rate}, indent=4)
-        return test
+        with sq.connect('CurrencyExchange.db') as con:
+            cur = con.cursor()
+            code1 = code1.upper()
+            code2 = code2.upper()
+
+            cur.execute("""SELECT Currencies.ID,  Currencies.Code, Currencies.FullName, Currencies.Sign
+                                   FROM ExchangeRates JOIN Currencies ON ExchangeRates.BaseCurrencyId = Currencies.ID""")
+            # Список с кортежами по первой валюте
+            data1 = cur.fetchall()
+            # Запрос, который вытаскивает валюту по второму внешнему ключу
+            cur.execute("""SELECT Currencies.ID,  Currencies.Code, Currencies.FullName, Currencies.Sign
+                                               FROM ExchangeRates JOIN Currencies ON ExchangeRates.TargetCurrencyId = Currencies.ID""")
+            # Список с кортежами по второй валюте
+            data2 = cur.fetchall()
+
+            # В эту переменную я вкладываю все возможные пары валют
+            cur_exchange = []
+            for i in range(len(data1)):
+                cur_exchange.append(str(data1[i][1]))
+                cur_exchange[-1] += str(data2[i][1])
+            set_cur_exchange = set(cur_exchange)
+            if code1+code2 not in set_cur_exchange:
+                raise MyException2
+
+            cur.execute("""SELECT * FROM Currencies""")
+            for elem in cur:
+                if elem[1] == code1:
+                    id1 = elem[0]
+                    break
+
+            for elem in cur:
+                if elem[1] == code2:
+                    id2 = elem[0]
+                    break
+
+            # Не работает
+            cur.execute("""UPDATE ExchangeRates SET Rate = (?) WHERE BaseCurrencyId = (?)
+                        AND TargetCurrencyId = (?)""", (rate, id1, id2))
+
+            return json.dumps({'code1': code1, 'code2': code2, 'rate': rate}, indent=4)
 
 
 if __name__ == '__main__':
-    # print(Model.get_currency('rub'))
     print(Model.get_exchange('rub', 'aud', 10))
