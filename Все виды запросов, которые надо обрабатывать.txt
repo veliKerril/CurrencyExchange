@@ -38,3 +38,5 @@ https://habr.com/ru/articles/50147/ - типы HTTP запросов
 https://docs-python.ru/standart-library/modul-http-server-python/klass-basehttprequesthandler/ - методы базового хендлера
 
 ОБЯЗАТЕЛЬНО НОРМАЛЬНО ЭКСЕПШЕНЫ ПРОПИСАТЬ
+
+SELECT EXISTS (SELECT Currencies.Code FROM ExchangeRates JOIN Currencies ON ExchangeRates.BaseCurrencyId = Currencies.ID WHERE Currencies.Code = 'RUB')
