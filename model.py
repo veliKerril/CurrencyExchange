@@ -18,7 +18,8 @@ class MyException3(Exception):
 '''
 
 class Model:
-    # Метод, который обнуляет базу данных и создает ее с нуля, заполняя тестовыми начальными значениями
+    # При запуске метода база данных откатывается до первоначальных тестовых значений.
+    # При отстутствии базы данных она создается
     @staticmethod
     def reset_and_create_bd():
         with sq.connect('CurrencyExchange.db') as con:
@@ -64,7 +65,8 @@ class Model:
             cur.execute("""INSERT INTO ExchangeRates VALUES (8, 1, 4, 0.78)""")
             cur.execute("""INSERT INTO ExchangeRates VALUES (9, 1, 6, 95.20)""")
 
-    # Метод, который возвращает все доступные валюты в виде JSON
+    # Возвращает все доступные валюты в виде JSON
+    # sql +++
     @staticmethod
     def get_currencies():
         with sq.connect('CurrencyExchange.db') as con:
@@ -79,7 +81,8 @@ class Model:
                 data[-1]['sign'] = elem[3]
             return json.dumps(data, indent=4)
 
-    # Метод, который возвращает конкретную валюты по коду в виде JSON
+    # Возвращает конкретную валюту по коду в виде JSON
+    # sql +++
     @staticmethod
     def get_currency(code):
         with sq.connect('CurrencyExchange.db') as con:
@@ -99,6 +102,7 @@ class Model:
 
     # Полный треш - я всю информацию загружаю в питон и тут анализирую
     # Реагирует на GET для /exchangeRates
+    # А как сделать иначе?
     @staticmethod
     def get_exchange_rates():
         with sq.connect('CurrencyExchange.db') as con:
@@ -133,8 +137,8 @@ class Model:
                 res[-1]['targetCurrency']['sign'] = data2[i][3]
             return json.dumps(res, indent=4)
 
-    # Полный треш - я всю информацию загружаю в питон и тут анализирую
     # Реагирует на GET для /exchangeRate/, то есть выдает конкретную валютную пару
+    # SQL +++
     @staticmethod
     def get_exchange_rate(code1, code2):
         with sq.connect('CurrencyExchange.db') as con:
@@ -142,48 +146,40 @@ class Model:
             code1 = code1.upper()
             code2 = code2.upper()
 
+            """
+            ТУТ В ОБЯЗАТЕЛЬНОМ ПОРЯДКЕ ПРОРАБОТАТЬ ВОПРОС ИСКЛЮЧЕНИЙ
+            НА САМОМ ДЕЛЕ ЛЕВОЕ РЕШЕНИЕ, ОНО НЕ ДОЛЖНО РАБОТАТЬ, В ОБЯЗАТЕЛЬНОМ ПОРЯДКЕ ОСМЫСЛИТЬ, ПОЧЕМУ
+            """
             cur.execute("""SELECT Currencies.ID,  Currencies.Code, Currencies.FullName, Currencies.Sign
-                       FROM ExchangeRates JOIN Currencies ON ExchangeRates.BaseCurrencyId = Currencies.ID""")
-            # Список с кортежами по первой валюте
-            data1 = cur.fetchall()
+                       FROM ExchangeRates JOIN Currencies ON ExchangeRates.BaseCurrencyId = Currencies.ID
+                       WHERE Currencies.Code = (?)""", (code1,))
+            # Значение первой валюты
+            data1 = cur.fetchone()[0]
             # Запрос, который вытаскивает валюту по второму внешнему ключу
             cur.execute("""SELECT Currencies.ID,  Currencies.Code, Currencies.FullName, Currencies.Sign
-                                   FROM ExchangeRates JOIN Currencies ON ExchangeRates.TargetCurrencyId = Currencies.ID""")
+                                   FROM ExchangeRates JOIN Currencies ON ExchangeRates.BaseCurrencyId = Currencies.ID
+                                   WHERE Currencies.Code = (?)""", (code2,))
             # Список с кортежами по второй валюте
-            data2 = cur.fetchall()
+            data2 = cur.fetchone()[0]
 
-            # В эту переменную я вкладываю все возможные пары валют
-            cur_exchange = []
-            code = code1 + code2
-
-            for i in range(len(data1)):
-                cur_exchange.append(str(data1[i][1]))
-                cur_exchange[-1] += str(data2[i][1])
-                if code == cur_exchange[-1]:
-                    index = i
-                    break
-            set_cur_exchange = set(cur_exchange)
-
-            if code not in set_cur_exchange:
-                return False
-            else:
-                # Запрос, который вытаскивает все значения в таблице ExchangeRates
-                cur.execute("""SELECT * FROM ExchangeRates""")
-                data3 = cur.fetchall()
-                res = {}
-                res['id'] = data3[index][0]
-                res['baseCurrency'] = {}
-                res['targetCurrency'] = {}
-                res['rate'] = data3[index][3]
-                res['baseCurrency']['id'] = data1[index][0]
-                res['baseCurrency']['name'] = data1[index][1]
-                res['baseCurrency']['code'] = data1[index][2]
-                res['baseCurrency']['sign'] = data1[index][3]
-                res['targetCurrency']['id'] = data2[index][0]
-                res['targetCurrency']['name'] = data2[index][1]
-                res['targetCurrency']['code'] = data2[index][2]
-                res['targetCurrency']['sign'] = data2[index][3]
-                return json.dumps(res, indent=4)
+            # Запрос, который вытаскивает нужную строку из обмена
+            cur.execute("""SELECT * FROM ExchangeRates WHERE BaseCurrencyId = (?)
+                            AND TargetCurrencyId = (?)""", (data1[0], data2[0]))
+            data3 = cur.fetchone()[0]
+            res = {}
+            res['id'] = data3[0]
+            res['baseCurrency'] = {}
+            res['targetCurrency'] = {}
+            res['rate'] = data3[3]
+            res['baseCurrency']['id'] = data1[0]
+            res['baseCurrency']['name'] = data1[1]
+            res['baseCurrency']['code'] = data1[2]
+            res['baseCurrency']['sign'] = data1[3]
+            res['targetCurrency']['id'] = data2[0]
+            res['targetCurrency']['name'] = data2[1]
+            res['targetCurrency']['code'] = data2[2]
+            res['targetCurrency']['sign'] = data2[3]
+            return json.dumps(res, indent=4)
 
     # Полный треш, совсем плохо - полностью переписывать логику
     # Реагирует на GET для /exchange?
@@ -291,23 +287,24 @@ class Model:
             else:
                 return json.dumps({'message': 'Not found'}, indent=4)
 
-    # Исправить sql часть
-    # Реагирует на POST для /currencies, добавляет новую валюту в бд
+    # Добавляет новую валюту в базу данных
+    # sql +++
     @staticmethod
     def post_currencies(name, code, sign):
         with sq.connect('CurrencyExchange.db') as con:
             cur = con.cursor()
-            cur.execute("""SELECT Code FROM Currencies""")
-            for elem in cur:
-                if elem[0] == code:
-                    raise MyException2
+
+            # Делаем проверку на существовании валюты в базе данных
+            cur.execute("""SELECT COUNT(Code) FROM Currencies WHERE Code = (?)""", (code,))
+            if cur.fetchone()[0] > 0:
+                raise MyException2
 
             cur.execute("""INSERT INTO Currencies (Code, FullName, Sign) VALUES (?, ?, ?)""", (code, name, sign))
 
         return json.dumps({'name': name, 'code': code, 'sign': sign}, indent=4)
 
-    # Исправить sql часть
     # Реагирует на POST для /exchangeRate, добавляет новый обменный курс
+    # SQL +++
     @staticmethod
     def post_exchangeRate(code1, code2, rate):
         with sq.connect('CurrencyExchange.db') as con:
@@ -315,45 +312,30 @@ class Model:
             code1 = code1.upper()
             code2 = code2.upper()
 
-            cur.execute("""SELECT Currencies.ID,  Currencies.Code, Currencies.FullName, Currencies.Sign
-                                   FROM ExchangeRates JOIN Currencies ON ExchangeRates.BaseCurrencyId = Currencies.ID""")
-            # Список с кортежами по первой валюте
-            data1 = cur.fetchall()
-            # Запрос, который вытаскивает валюту по второму внешнему ключу
-            cur.execute("""SELECT Currencies.ID,  Currencies.Code, Currencies.FullName, Currencies.Sign
-                                               FROM ExchangeRates JOIN Currencies ON ExchangeRates.TargetCurrencyId = Currencies.ID""")
-            # Список с кортежами по второй валюте
-            data2 = cur.fetchall()
+            """
+            Есть смысл засунуть в функции?
+            """
 
-            # В эту переменную я вкладываю все возможные пары валют
-            cur_exchange = []
-            for i in range(len(data1)):
-                cur_exchange.append(str(data1[i][1]))
-                cur_exchange[-1] += str(data2[i][1])
-            set_cur_exchange = set(cur_exchange)
-            if code1+code2 in set_cur_exchange:
+            # Вытаскиваем ID первой и второй валюты
+            cur.execute("""SELECT ID FROM Currencies WHERE Currencies.Code = (?)""", (code1,))
+            id1 = cur.fetchone()[0]
+            cur.execute("""SELECT ID FROM Currencies WHERE Currencies.Code = (?)""", (code2,))
+            id2 = cur.fetchone()[0]
+
+            # Проверка на наличие валютной пары в базе данных
+            cur.execute("""SELECT COUNT(ID) FROM ExchangeRates WHERE BaseCurrencyId = (?)
+                                    AND TargetCurrencyId = (?))""", (id1, id2))
+            if cur.fetchone()[0] == 1:
                 raise MyException2
 
-            cur.execute("""SELECT * FROM Currencies""")
-            for elem in cur:
-                if elem[1] == code1:
-                    id1 = elem[0]
-                    break
-
-            for elem in cur:
-                if elem[1] == code2:
-                    id2 = elem[0]
-                    break
-
-            # Не работает
             cur.execute("""INSERT INTO ExchangeRates (BaseCurrencyId, TargetCurrencyId, Rate) 
                         VALUES (?, ?, ?)""", (id1, id2, rate))
 
             return json.dumps({'baseCurrencyCode': code1, 'targetCurrencyCode': code2,\
                                'rate': rate}, indent=4)
 
-    # Исправить sql часть
     # Реагирует на PATCH для /exchangeRate/, изменяя предыдущие значения
+    # sql +++
     @staticmethod
     def patch_exchangeRate(code1, code2, rate):
         with sq.connect('CurrencyExchange.db') as con:
@@ -361,37 +343,18 @@ class Model:
             code1 = code1.upper()
             code2 = code2.upper()
 
-            cur.execute("""SELECT Currencies.ID,  Currencies.Code, Currencies.FullName, Currencies.Sign
-                                   FROM ExchangeRates JOIN Currencies ON ExchangeRates.BaseCurrencyId = Currencies.ID""")
-            # Список с кортежами по первой валюте
-            data1 = cur.fetchall()
-            # Запрос, который вытаскивает валюту по второму внешнему ключу
-            cur.execute("""SELECT Currencies.ID,  Currencies.Code, Currencies.FullName, Currencies.Sign
-                                               FROM ExchangeRates JOIN Currencies ON ExchangeRates.TargetCurrencyId = Currencies.ID""")
-            # Список с кортежами по второй валюте
-            data2 = cur.fetchall()
+            # Вытаскиваем ID первой и второй валюты
+            cur.execute("""SELECT ID FROM Currencies WHERE Currencies.Code = (?)""", (code1, ))
+            id1 = cur.fetchone()[0]
+            cur.execute("""SELECT ID FROM Currencies WHERE Currencies.Code = (?)""", (code2,))
+            id2 = cur.fetchone()[0]
 
-            # В эту переменную я вкладываю все возможные пары валют
-            cur_exchange = []
-            for i in range(len(data1)):
-                cur_exchange.append(str(data1[i][1]))
-                cur_exchange[-1] += str(data2[i][1])
-            set_cur_exchange = set(cur_exchange)
-            if code1+code2 not in set_cur_exchange:
+            # Проверка на наличие валютной пары в базе данных
+            cur.execute("""SELECT COUNT(ID) FROM ExchangeRates WHERE BaseCurrencyId = (?)
+                        AND TargetCurrencyId = (?))""", (id1, id2))
+            if cur.fetchone()[0] == 0:
                 raise MyException2
 
-            cur.execute("""SELECT * FROM Currencies""")
-            for elem in cur:
-                if elem[1] == code1:
-                    id1 = elem[0]
-                    break
-
-            for elem in cur:
-                if elem[1] == code2:
-                    id2 = elem[0]
-                    break
-
-            # Не работает
             cur.execute("""UPDATE ExchangeRates SET Rate = (?) WHERE BaseCurrencyId = (?)
                         AND TargetCurrencyId = (?)""", (rate, id1, id2))
 
@@ -399,4 +362,5 @@ class Model:
 
 
 if __name__ == '__main__':
-    print(Model.get_exchange('rub', 'aud', 10))
+    print([1])
+    print(*[1])
