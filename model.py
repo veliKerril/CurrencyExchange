@@ -335,3 +335,7 @@ class Model:
                         AND TargetCurrencyId = (?)""", (rate, id1, id2))
 
             return json.dumps({'code1': code1, 'code2': code2, 'rate': rate}, indent=4)
+
+
+if __name__ == '__main__':
+    Model.reset_and_create_bd()
