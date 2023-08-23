@@ -17,6 +17,8 @@ POST /exchangeRates
 PATCH /exchangeRate/USDRUB
 Обновление существующего в базе обменного курса.
 
+asdf
+
 UNITED STATES OF AMERICA (THE)	US Dollar	USD	840
 ANDORRA	Euro	EUR	978
 JAPAN	Yen	JPY	392

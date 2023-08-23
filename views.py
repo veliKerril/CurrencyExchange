@@ -2,11 +2,10 @@
 class Views:
     ENCODING = 'utf-8'
 
-    # Отправляется при неправильном запросе
-    ### В ОБЯЗАТЕЛЬНОМ ПОРЯДКЕ ДАЛЬШЕ ПЕРЕПИСАТЬ, СОДЕРЖА В СЕБЕ КОНКРЕТНУЮ ОШИБКУ
+    # Отправляется при неправильном URL запросе
     @staticmethod
     def create_wrong_request():
-        return 'Введен неправильный запрос'.encode(encoding=Views.ENCODING)
+        return 'Введен неправильный URL запрос'.encode(encoding=Views.ENCODING)
 
     ###############################################
     ############## GET запросы ####################
@@ -14,7 +13,6 @@ class Views:
 
     # Возвращает представление для /currencies, response 200
     # Принимает на вход json объект
-    # Рабочая модель
     @staticmethod
     def create_currencies_response200(json_object):
         return json_object.encode(encoding=Views.ENCODING)
@@ -22,11 +20,10 @@ class Views:
     # Возвращает представление для /currencies, response 500
     @staticmethod
     def create_currencies_response500():
-        return 'Ошибка на стороне сервера - не найдена база данных'.encode(encoding=Views.ENCODING)
+        return 'Ошибка на стороне сервера'.encode(encoding=Views.ENCODING)
 
     # Возвращает представление для /currency/, response 200
     # Принимает на вход json объект
-    # Рабочая модель
     @staticmethod
     def create_currency_response200(json_object):
         return json_object.encode(encoding=Views.ENCODING)
@@ -48,7 +45,6 @@ class Views:
 
     # Возвращает представление для /exchangeRates, response 200
     # Принимает на вход json объект
-    # Почти рабочая модель, доделать
     @staticmethod
     def create_exchangeRates_response200(json_object):
         return json_object.encode(encoding=Views.ENCODING)
@@ -60,7 +56,6 @@ class Views:
 
     # Возвращает представление для /exchangeRate/, response 200
     # Принимает на вход json объект
-    # Тестовая версия 1
     @staticmethod
     def create_exchangeRate_response200(json_object):
         return json_object.encode(encoding=Views.ENCODING)
@@ -82,7 +77,6 @@ class Views:
 
     # Возвращает представление для /exchange?, response 200
     # Принимает на вход json объект
-    # Тестовая версия 2
     @staticmethod
     def create_exchange_response200(json_object):
         return json_object.encode(encoding=Views.ENCODING)
@@ -93,7 +87,6 @@ class Views:
 
     # Возвращает представление для POST /currencies, response 200
     # Принимает на вход json объект
-    # Тестовая версия 3
     @staticmethod
     def create_post_currencies_response200(json_object):
         return json_object.encode(encoding=Views.ENCODING)
@@ -105,7 +98,12 @@ class Views:
 
     # Возвращает представление для POST /currencies, response 409
     @staticmethod
-    def create_post_currencies_response409():
+    def create_post_currencies_response409_1():
+        return 'Код валюты состоит исключительно из трех латинских букв'.encode(encoding=Views.ENCODING)
+
+    # Возвращает представление для POST /currencies, response 409
+    @staticmethod
+    def create_post_currencies_response409_2():
         return 'Валюта с таким кодом уже существует'.encode(encoding=Views.ENCODING)
 
     # Возвращает представление для POST /currencies, response 500
@@ -115,7 +113,6 @@ class Views:
 
     # Возвращает представление для POST /exchangeRate, response 200
     # Принимает на вход json объект
-    # Тестовая версия 4
     @staticmethod
     def create_post_exchangeRate_response200(json_object):
         return json_object.encode(encoding=Views.ENCODING)
@@ -124,6 +121,11 @@ class Views:
     @staticmethod
     def create_post_exchangeRate_response400():
         return 'Отсутствует нужное поле формы'.encode(encoding=Views.ENCODING)
+
+    # Возвращает представление для POST /exchangeRate, response 400
+    @staticmethod
+    def create_post_exchangeRate_response404():
+        return 'Обменный курс для пары не найден'.encode(encoding=Views.ENCODING)
 
     # Возвращает представление для POST /exchangeRate, response 409
     @staticmethod
@@ -141,7 +143,6 @@ class Views:
 
     # Возвращает представление для PATCH /exchangeRate/, response 200
     # Принимает на вход json объект
-    # Тестовая версия 5
     @staticmethod
     def create_patch_exchangeRate_response200(json_object):
         return json_object.encode(encoding=Views.ENCODING)

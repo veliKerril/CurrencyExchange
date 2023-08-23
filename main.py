@@ -1,7 +1,6 @@
 from http import server
 from controller import HTTPRequestHandler
 
-# Запускаем сервер, передаем IP и порт, по которому будем передавать информацию. Вторым аргументом
-# вносим класс, который отвечает за обработку http запросов.
-server = server.HTTPServer(('', 8000), HTTPRequestHandler)
+# Запускаем сервер на 80 порту
+server = server.HTTPServer(('45.12.239.121', 80), HTTPRequestHandler)
 server.serve_forever()
