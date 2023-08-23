@@ -1,4 +1,4 @@
 # CurrencyExchange
-RESTfull API для получения информации по валютам
+API для получения информации по валютам
 
-Проект взять с ресурса https://zhukovsd.github.io/java-backend-learning-course/
+Проект взят с ресурса https://zhukovsd.github.io/java-backend-learning-course/
